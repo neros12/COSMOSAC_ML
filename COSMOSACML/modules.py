@@ -27,7 +27,6 @@ _R = 1.987204258e-3  # gas constant [kcal/K/mol]
 _AES = 6525.69  # electrostatic constant A [kcal*ang**4/mol/e**2]
 _BES = 1.4859e8  # electrostatic constant B [kcal*Å**4*K**2/mol/e**2]
 _aeff = 7.25  # effective area [Å**2], number of sigma profiles,
-_num_sp = 3
 _chb = np.array(
     [[0, 0, 0], [0, 4013.78, 3016.43], [0, 3016.43, 932.31]]
 )  # hydrogen bonding parameter [kcal*Å^4/mol/e^2],
@@ -153,7 +152,7 @@ def _cal_DW(T):
     # Initialize parameters
     sig = np.linspace(-0.025, 0.025, 51)
     sigT = sig.reshape(-1, 1)
-    DW = np.zeros((_num_sp, _num_sp, 51, 51))
+    DW = np.zeros((3, 3, 51, 51))
 
     # Calculate exchange energy for each pair of sigma profile types
     for i in range(3):
@@ -561,7 +560,7 @@ def calculate_gamma(chemical_profiles: list, x: list, T: float) -> list:
     """
     areas = np.array([])
     volumes = np.array([])
-    psigA = np.array([]).reshape(0, _num_sp, 51)
+    psigA = np.array([]).reshape(0, 3, 51)
     eks = np.array([])
     natrs = []
     for chemical_profile in chemical_profiles:
