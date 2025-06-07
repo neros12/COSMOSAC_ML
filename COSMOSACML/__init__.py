@@ -1,4 +1,4 @@
-from modules import calculate_sigma_profile, calculate_gamma
+from .modules import calculate_sigma_profile, calculate_gamma
 
 
 def calculate_binary_gamma(

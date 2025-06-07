@@ -1,23 +1,24 @@
+import os
 import json
-from os.path import join as opj
-
 
 import numpy as np
-from pathlib import Path
 from rdkit import Chem
 from scipy.linalg import fractional_matrix_power
 
 
-PARAMETER_DIR = opj(Path(__file__).parent, "parameters")
+PARAMETER_DIR = os.path.join(os.path.dirname(__file__), "parameters")
 
-with open(opj(PARAMETER_DIR, "nhb.json"), "rb") as f:
+with open(os.path.join(PARAMETER_DIR, "nhb.json"), "rb") as f:
     nhb_param = json.load(f)
-with open(opj(PARAMETER_DIR, "oh.json"), "rb") as f:
+with open(os.path.join(PARAMETER_DIR, "oh.json"), "rb") as f:
     oh_param = json.load(f)
-with open(opj(PARAMETER_DIR, "ot.json"), "rb") as f:
+with open(os.path.join(PARAMETER_DIR, "ot.json"), "rb") as f:
     ot_param = json.load(f)
-with open(opj(PARAMETER_DIR, "vol.json"), "rb") as f:
+with open(os.path.join(PARAMETER_DIR, "vol.json"), "rb") as f:
     vol_param = json.load(f)
+with open(os.path.join(PARAMETER_DIR, "exceptions.json"), "rb") as f:
+    chemical_exceptions = json.load(f)
+
 
 _q0 = 79.53  # area normalization parameter [Å**2]
 _r0 = 66.69  # volume normalization parameter [Å**3]
@@ -377,18 +378,23 @@ def _get_dsp(dtype):
 
 
 def calculate_sigma_profile(SMILES: str) -> dict:
-    nfm, efm = _get_GCGCN_input(SMILES)
+    if SMILES in chemical_exceptions:
+        area = np.float64(chemical_exceptions[SMILES]["area"])
+        volume = np.float64(chemical_exceptions[SMILES]["volume"])
+        sigma_profiles = np.array(chemical_exceptions[SMILES]["sigma_profiles"])
+    else:
+        nfm, efm = _get_GCGCN_input(SMILES)
 
-    volume = 562 * _GCGCN_model(nfm, efm, vol_param)[0]
+        volume = 562 * _GCGCN_model(nfm, efm, vol_param)[0]
 
-    sigma_profiles = np.zeros((3, 51))
-    sigma_profiles[0] = 145 * _GCGCN_model(nfm, efm, nhb_param)
-    sigma_profiles[1] = 7 * _GCGCN_model(nfm, efm, oh_param)
-    sigma_profiles[2] = 16 * _GCGCN_model(nfm, efm, ot_param)
-    sigma_profiles = np.where(sigma_profiles < 0, 0, sigma_profiles)
-    sigma_profiles = sigma_profiles.reshape(1, 3, 51)
+        sigma_profiles = np.zeros((3, 51))
+        sigma_profiles[0] = 145 * _GCGCN_model(nfm, efm, nhb_param)
+        sigma_profiles[1] = 7 * _GCGCN_model(nfm, efm, oh_param)
+        sigma_profiles[2] = 16 * _GCGCN_model(nfm, efm, ot_param)
+        sigma_profiles = np.where(sigma_profiles < 0, 0, sigma_profiles)
+        sigma_profiles = sigma_profiles.reshape(1, 3, 51)
 
-    area = np.sum(sigma_profiles)
+        area = np.sum(sigma_profiles)
 
     mol = Chem.MolFromSmiles(SMILES)
     mol = Chem.AddHs(mol)
