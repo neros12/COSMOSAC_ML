@@ -1,6 +1,7 @@
 import json
 from os.path import join as opj
 
+
 import numpy as np
 from pathlib import Path
 from rdkit import Chem
@@ -8,7 +9,146 @@ from scipy.linalg import fractional_matrix_power
 from scipy.spatial import distance_matrix
 
 
-FILE_DIR = Path(__file__).parent
+PARAMETER_DIR = opj(Path(__file__).parent, "parameters")
+FILE_DIR = ""
+
+with open(opj(PARAMETER_DIR, "nhb.json"), "rb") as f:
+    nhb_param = json.load(f)
+with open(opj(PARAMETER_DIR, "oh.json"), "rb") as f:
+    oh_param = json.load(f)
+with open(opj(PARAMETER_DIR, "ot.json"), "rb") as f:
+    ot_param = json.load(f)
+with open(opj(PARAMETER_DIR, "vol.json"), "rb") as f:
+    vol_param = json.load(f)
+
+x = []  # liquid mole fraction
+T = 0  # system temperature
+
+_q0 = 79.53  # area normalization parameter [Å**2]
+_r0 = 66.69  # volume normalization parameter [Å**3]
+_z = 10  # coordination number
+_sighb = 0.0084  # hydrogen bonding screening charge [e/Å**2]
+_R = 1.987204258e-3  # gas constant [kcal/K/mol]
+_fdecay = 0.52928 ** (-2)  # unit conversion parameter [1]
+_sig0 = 0.007  # hydrogen bondable screening charge [e/Å**2]
+_AES = 6525.69  # electrostatic constant A [kcal*ang**4/mol/e**2]
+_BES = 1.4859e8  # electrostatic constant B [kcal*Å**4*K**2/mol/e**2]
+_aeff = 7.25  # effective area [Å**2], number of sigma profiles,
+_num_sp = 3
+_chb = np.array(
+    [[0, 0, 0], [0, 4013.78, 3016.43], [0, 3016.43, 932.31]]
+)  # hydrogen bonding parameter [kcal*Å^4/mol/e^2],
+_cES = _AES + _BES / T / T  # electrostatic parameter [kcal*Å^4/mol/e^2]
+_reff = np.sqrt(_aeff / np.pi)  # effective radius, [Å]
+
+# molecular information from COSMO calculation
+A = np.array([])  # cavity area
+V = np.array([])  # cavity volume
+# sigma profile * area
+psigA = np.array([]).reshape(0, _num_sp, 51)
+ek = np.array([])  # dispersive parameter /K
+name = []  # molecule name
+dnatr = []  # molecular dispersive type
+# atom radius, [Å]
+_rc = {
+    "H": 0.31,
+    "He": 0.28,
+    "Li": 1.28,
+    "Be": 0.96,
+    "B": 0.84,
+    "C": 0.76,  # sp3 hybridization, sp2: 0.73 sp1: 0.69
+    "N": 0.71,
+    "O": 0.66,
+    "F": 0.57,
+    "Ne": 0.58,
+    "Na": 1.66,
+    "Mg": 1.41,
+    "Al": 1.21,
+    "Si": 1.11,
+    "P": 1.07,
+    "S": 1.05,
+    "Cl": 1.02,
+    "Ar": 1.06,
+    "K": 2.03,
+    "Ca": 1.76,
+    "Sc": 1.70,
+    "Ti": 1.60,
+    "V": 1.53,
+    "Cr": 1.39,
+    "Mn": 1.39,  # l.s.; h.s.: 1.61
+    "Fe": 1.32,  # l.s.; h.s.: 1.52
+    "Co": 1.26,  # l.s.; h.s.: 1.50
+    "Ni": 1.24,
+    "Cu": 1.32,
+    "Zn": 1.22,
+    "Ga": 1.22,
+    "Ge": 1.20,
+    "As": 1.19,
+    "Se": 1.20,
+    "Br": 1.20,
+    "Kr": 1.16,
+    "Rb": 2.20,
+    "Sr": 1.95,
+    "Y": 1.90,
+    "Zr": 1.75,
+    "Nb": 1.64,
+    "Mo": 1.54,
+    "Tc": 1.47,
+    "Ru": 1.46,
+    "Rh": 1.42,
+    "Pd": 1.39,
+    "Ag": 1.45,
+    "Cd": 1.44,
+    "In": 1.42,
+    "Sn": 1.39,
+    "Sb": 1.39,
+    "Te": 1.38,
+    "I": 1.39,
+    "Xe": 1.40,
+    "Cs": 2.44,
+    "Ba": 2.15,
+    "La": 2.07,
+    "Ce": 2.04,
+    "Pr": 2.03,
+    "Nd": 2.01,
+    "Pm": 1.99,
+    "Sm": 1.98,
+    "Eu": 1.98,
+    "Gd": 1.96,
+    "Tb": 1.94,
+    "Dy": 1.92,
+    "Ho": 1.92,
+    "Er": 1.89,
+    "Tm": 1.90,
+    "Yb": 1.87,
+    "Lu": 1.87,
+    "Hf": 1.75,
+    "Ta": 1.70,
+    "W": 1.62,
+    "Re": 1.51,
+    "Os": 1.44,
+    "Ir": 1.41,
+    "Pt": 1.36,
+    "Au": 1.36,
+    "Hg": 1.32,
+    "Tl": 1.45,
+    "Pb": 1.46,
+    "Bi": 1.48,
+    "Po": 1.40,
+    "At": 1.50,
+    "Rn": 1.50,
+    "Fr": 2.60,
+    "Ra": 2.21,
+    "Ac": 2.15,
+    "Th": 2.06,
+    "Pa": 2.00,
+    "U": 1.96,
+    "Np": 1.90,
+    "Pu": 1.87,
+    "Am": 1.80,
+    "Cm": 1.69,
+}
+_ang_au = 0.52917721067  # unit change [Å/atomic unit]
 
 
 class COSMOSAC:
@@ -24,17 +164,6 @@ class COSMOSAC:
 
         self.x = []  # liquid mole fraction
         self.T = 0  # system temperature
-
-        # global parameters
-        if predict:
-            with open(opj(FILE_DIR, "model_parameters", "nhb.json"), "rb") as f:
-                self.nhb_param = json.load(f)
-            with open(opj(FILE_DIR, "model_parameters", "oh.json"), "rb") as f:
-                self.oh_param = json.load(f)
-            with open(opj(FILE_DIR, "model_parameters", "ot.json"), "rb") as f:
-                self.ot_param = json.load(f)
-            with open(opj(FILE_DIR, "model_parameters", "vol.json"), "rb") as f:
-                self.vol_param = json.load(f)
 
         self._q0 = 79.53  # area normalization parameter [Å**2]
         self._r0 = 66.69  # volume normalization parameter [Å**3]
@@ -1073,7 +1202,7 @@ class COSMOSAC:
         return gam
 
 
-def get_COSMO_file_dir(SMILES: str) -> (str | None):
+def get_COSMO_file_dir(SMILES: str) -> str | None:
     """Get COSMO file's directory if there is already calculated molecule.
 
     Parameters
@@ -1093,7 +1222,7 @@ def get_COSMO_file_dir(SMILES: str) -> (str | None):
         InChIKey_to_index = json.load(json_file)
 
     try:
-       InChIKey = Chem.inchi.MolToInchiKey(Chem.MolFromSmiles(SMILES))
+        InChIKey = Chem.inchi.MolToInchiKey(Chem.MolFromSmiles(SMILES))
     except ValueError:
         raise ValueError("The molecule is not supported.")
 
