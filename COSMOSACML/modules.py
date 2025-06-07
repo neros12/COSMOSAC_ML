@@ -438,7 +438,8 @@ def cal_ln_gam_comb(A, V, x):
 
 
 def cal_ln_gam_res(A, psigA, x, T):
-    """Calculate residual activity coefficients.
+    """
+    Calculate residual activity coefficients.
 
     Parameters
     ----------
@@ -464,30 +465,32 @@ def cal_ln_gam_res(A, psigA, x, T):
     diff = 1
 
     for _ in range(500):
-        Gam_old = Gam
-        Gam_mix_old = Gam_mix
+        Gam_old = np.array(Gam)
+        Gam_mix_old = np.array(Gam_mix)
 
-        # update segment activities
-        Gam = 1 / np.einsum("istmn,isn->itm", A_plus, Gam)
-        Gam_mix = 1 / np.einsum("stmn,sn->tm", A_plus_mix, Gam_mix)
+        # Update Gam element-wise
+        for i in range(Gam.shape[0]):
+            for t in range(Gam.shape[1]):
+                for m in range(Gam.shape[2]):
+                    Gam[i, t, m] = 1 / np.einsum(
+                        "sn,sn->", A_plus[i, :, t, m, :], Gam[i, :, :]
+                    )
 
-        # apply damping
-        Gam = (1.618 * Gam + Gam_old) / 2.618
-        Gam_mix = (1.618 * Gam_mix + Gam_mix_old) / 2.618
+        # Update Gam_mix element-wise
+        for t in range(Gam_mix.shape[0]):
+            for m in range(Gam_mix.shape[1]):
+                Gam_mix[t, m] = 1 / np.einsum(
+                    "sn,sn->", A_plus_mix[:, t, m, :], Gam_mix[:, :]
+                )
 
         # check convergence
-        diff = np.max(
-            [
-                np.max(np.abs((Gam - Gam_old) / Gam_old)),
-                np.max(np.abs((Gam_mix - Gam_mix_old) / Gam_mix_old)),
-            ]
-        )
+        diff = np.sum((Gam - Gam_old) ** 2)
+        diff_mix = np.sum((Gam_mix - Gam_mix_old) ** 2)
 
-        if diff <= 1e-4:
+        if diff <= 1e-6 and diff_mix <= 1e-6:
             break
-
     else:
-        raise Exception("Converge Failed")
+        raise Exception("Converge failed")
 
     # calculate residual activity coefficients
     Gam_part = np.log(Gam_mix) - np.log(Gam)
