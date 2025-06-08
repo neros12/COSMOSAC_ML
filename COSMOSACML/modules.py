@@ -400,17 +400,21 @@ def calculate_sigma_profile(SMILES: str) -> dict:
     atoms = [atom.GetSymbol() for atom in mol.GetAtoms()]
     bonds = Chem.GetAdjacencyMatrix(mol)
 
+    bond_type, natr = _get_atom_type(atoms, bonds)
+    ek = _get_dsp(bond_type)
+
     return {
         "area": area,
         "volume": volume,
         "sigma_profiles": sigma_profiles,
-        "atoms": atoms,
-        "bonds": bonds,
+        "ek": ek,
+        "natr": natr,
     }
 
 
 def cal_ln_gam_comb(A, V, x):
-    """Calculate log of combinatory activity coefficients.
+    """
+    Calculate log of combinatory activity coefficients.
 
     Parameters
     ----------
@@ -570,12 +574,8 @@ def calculate_gamma(chemical_profiles: list, x: list, T: float) -> list:
         areas = np.append(areas, chemical_profile["area"])
         volumes = np.append(volumes, chemical_profile["volume"])
         psigA = np.vstack((psigA, chemical_profile["sigma_profiles"]))
-        bond_type, natr = _get_atom_type(
-            chemical_profile["atoms"],
-            chemical_profile["bonds"],
-        )
-        eks = np.append(eks, _get_dsp(bond_type))
-        natrs.append(natr)
+        eks = np.append(eks, chemical_profile["ek"])
+        natrs.append(chemical_profile["natr"])
 
     ln_gam_comb = cal_ln_gam_comb(areas, volumes, x)
     ln_gam_res = cal_ln_gam_res(areas, psigA, x, T)
