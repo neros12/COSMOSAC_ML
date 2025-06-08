@@ -406,8 +406,6 @@ def calculate_sigma_profile(SMILES: str) -> dict:
     bond_type, _, natr = _get_atom_type(atoms, bonds)
     ek = _get_dsp(bond_type)
 
-    print(ek)
-
     return {
         "area": area,
         "volume": volume,
@@ -522,6 +520,11 @@ def cal_ln_gam_dsp(x, ek, dnatr):
         Dispersive activity coefficients of components.
     """
     num_mol = len(x)
+
+    if None in ek:
+
+        return np.zeros(num_mol)
+
     ekT = ek.reshape(-1, 1)
 
     # check if dispersion activity coefficients are applicable
