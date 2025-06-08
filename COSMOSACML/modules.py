@@ -167,8 +167,7 @@ def _cal_DW(T):
 
 
 def _get_atom_type(atom, bond):
-    """
-    Get hybridization and sigma profile types for each atom.
+    """Get hybridization and sigma profile types for each atom.
 
     The dispersive natures are as below.
     DSP_WATER : WATER in this code. This indicates water.
@@ -207,8 +206,6 @@ def _get_atom_type(atom, bond):
 
     Parameters
     ----------
-    version : {2002, 2010, 2013, 2019}
-        The COSMO-SAC version.
     atom : numpy.ndarray of shape=(num_atom,)
         Atom symbols sorted by index in the cosmo file.
     bond : numpy.ndarray of shape=(num_atom, num_atom)
@@ -323,6 +320,9 @@ def _get_atom_type(atom, bond):
 
             # Renew i(H), j(O), k(C) and m(O) as the part of COOH
             dntype.add("COOH")
+            stype[i] = "COOH"
+            stype[j] = "COOH"
+            stype[m] = "COOH"
 
     # find the dispersive nature of the molecule
     if "HBOA" in dntype:
@@ -334,7 +334,7 @@ def _get_atom_type(atom, bond):
     if "COOH" in dntype:
         dnatr = "COOH"
 
-    return dtype, dnatr
+    return dtype, stype, dnatr
 
 
 def _get_dsp(dtype):
@@ -371,7 +371,11 @@ def _get_dsp(dtype):
 
     # calculate the dispersive parameter of the molecule
     ek = np.vectorize(ddict.get)(dtype)
-    ek = np.sum(ek) / np.count_nonzero(ek)
+    if None in ek:
+
+        return None
+    else:
+        ek = np.sum(ek) / np.count_nonzero(ek)
 
     return ek
 
@@ -399,9 +403,10 @@ def calculate_sigma_profile(SMILES: str) -> dict:
     mol = Chem.AddHs(mol)
     atoms = [atom.GetSymbol() for atom in mol.GetAtoms()]
     bonds = Chem.GetAdjacencyMatrix(mol)
-
-    bond_type, natr = _get_atom_type(atoms, bonds)
+    bond_type, _, natr = _get_atom_type(atoms, bonds)
     ek = _get_dsp(bond_type)
+
+    print(ek)
 
     return {
         "area": area,
@@ -580,6 +585,7 @@ def calculate_gamma(chemical_profiles: list, x: list, T: float) -> list:
     ln_gam_comb = cal_ln_gam_comb(areas, volumes, x)
     ln_gam_res = cal_ln_gam_res(areas, psigA, x, T)
     ln_gam_dsp = cal_ln_gam_dsp(x, eks, natrs)
+
     ln_gam = ln_gam_comb + ln_gam_res + ln_gam_dsp
     gam: np.ndarray = np.exp(ln_gam)
 
