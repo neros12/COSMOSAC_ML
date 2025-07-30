@@ -524,11 +524,18 @@ def cal_ln_gam_dsp(x, ek, dnatr):
     if None in ek:
 
         return np.zeros(num_mol)
+    elif True in np.isnan(ek):
+
+        return np.zeros(num_mol)
 
     ekT = ek.reshape(-1, 1)
 
     # check if dispersion activity coefficients are applicable
     if None in ek or None in dnatr:
+        ln_gam_dsp = np.array([0] * num_mol)
+
+        return ln_gam_dsp
+    elif True in np.isnan(ek):
         ln_gam_dsp = np.array([0] * num_mol)
 
         return ln_gam_dsp
